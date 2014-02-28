@@ -30,6 +30,7 @@ class SLSCrawler
 
     def login
         page = @agent.get(self.base_url + "/login")
+	return false if page.nil?
         return true unless page.link_with(:href => '/logout').nil?
 
         login_form = page.forms[0]
@@ -125,90 +126,4 @@ class SLSCrawler
         data
     end
 end
-
-# Springloops classes
-
-class SLSUser
-    attr_accessor :f_name, :l_name, :email, :short_name, :sls_id
-    def initialize
-        yield
-    end
-    def name
-        "#{@fname} #{@lname}"
-    end
-    def to_s
-        @email.to_s
-    end
-end
-
-class SLSProject
-    attr_accessor :sls_id, :name
-    def initialize
-        yield
-    end
-end
-
-class SLSLabel
-    attr_accessor :sls_id, :name
-    def initialize
-        yield
-    end
-    def to_s
-        @name.to_s
-    end
-end
-
-class SLSStatusChange
-    attr_accessor :name, :is_open
-    def initialize
-        yield
-    end
-    def is_open?
-        return @is_open
-    end
-end
-
-class SLSComment
-    attr_accessor :comment, :created, :id, :owner, :project, :status_change
-    def initialize
-        yield
-    end
-    def to_s
-        "#{@owner.name} said: #{@comment}"
-    end
-end
-
-class SLSTicket
-    attr_accessor :project, :assigned_to, :labels, :title, :priority, :status, :sls_id, :comments
-    def initialize json
-        @project = json[:projectId].to_i
-        @assigned_to = Array.new
-        json[:assignment].each do |user|
-            @assigned_to.push SLSUser.new do |u|
-                u.f_name = user[:firstName]
-                u.l_name = user[:lastName]
-                u.sls_id = user[:id]
-                u.email = user[:email]
-                u.short_name = user[:shortName]
-            end
-        end
-        @labels = Array.new
-        json[:ticketLabels].each do |label|
-            @labels.push SLSLabel.new do |lb|
-                lb.name = label[:name]
-                lb.sls_id = label[:id]
-            end
-        end
-        @title = json[:title]
-        @priority = json[:priority][:name].gsub(/\s+/,'_').downcase.to_sym
-        @status = json[:status][:name].gsub(/\s/,'_').downcase.to_sym
-        @sls_id = json[:id]
-        @comments = Array.new
-        yield
-    end
-    def comment comment
-        @comment.push comment
-    end
-end
-
 
