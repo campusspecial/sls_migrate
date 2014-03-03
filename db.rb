@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 # vim: ts=2:tw=2:sw=2:expandtab
+# vi: ts=2:tw=2:sw=2:expandtab
 
 require 'rubygems'
+require 'sqlite3'
 require 'active_record'
 require 'yaml'
 
@@ -115,7 +117,7 @@ end
 
 class User < ActiveRecord::Base
   has_many :creations, :class_name => 'Ticket'
-  has_many :assignments, :class_name => 'Ticket', :through => :ticket_assignments
+  has_many :tasks, :class_name => 'Ticket', :through => :ticket_assignments
   has_many :projects, :through => :project_assignments
   has_many :comments
   has_many :activities
@@ -126,7 +128,8 @@ class User < ActiveRecord::Base
 end
 
 class Project < ActiveRecord::Base
-  has_many :users, :through => :project_assigments
+  has_many :tickets
+  has_many :members, :class_name => 'User', :through => :project_assigments
   has_many :activities, :through => :tickets
 end
 
