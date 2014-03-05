@@ -94,7 +94,7 @@ module SLS
         table.boolean :open, :default => true, :null => false
         table.string :status
         table.integer :ticket_id, :null => false
-        table.integer :author, :null => false
+        table.integer :author_id, :null => false
       end
     end
 
@@ -137,6 +137,19 @@ module SLS
       self.assign label if label.is_a? SLS::Label and not self.labels.include? label
     end
 
+    def change_status(status, author)
+      SLS::StatusChange.create(
+        :status => status,
+        :ticket => self,
+        :author => author,
+        :open => (not ['resolved','closed'].include? status.downcase)
+      )
+    end
+
+    def status
+      self.status_changes.last
+    end
+
     def add_comment(body, author, sls_id=nil, created=DateTime.now)
       SLS::Comment.create(
         :body => body,
@@ -159,9 +172,10 @@ module SLS
 
   class User < ActiveRecord::Base
     has_many :creations, :class_name => 'SLS::Ticket'
-    has_many :assignments, :class_name => 'SLS::Assignment', :as => :subject
-    has_many :tasks, :source => :assignable, :source_type => 'SLS::Ticket',
-      :class_name => 'SLS::Ticket', :through => :assignments
+    has_many :assignments, :class_name => 'SLS::Assignment', :as => :assignable
+
+    has_many :tasks, :class_name => 'SLS::Ticket', :through => :assignments,
+      :as => :assignable, :source => :subject, :source_type => 'SLS::Ticket'
     has_many :comments, :class_name => 'SLS::Comment', :foreign_key => :author_id
   end
 
@@ -185,6 +199,10 @@ module SLS
     belongs_to :author, :class_name => 'SLS::User'
     after_create :create_activities
 
+    def is_open?
+      self.open
+    end
+
     private
 
     def create_activities
@@ -202,7 +220,7 @@ module SLS
       :as => :subject, :source => :assignable, :source_type => 'SLS::Label'
 
     def add_to_ticket(ticket)
-      #
+      self.assign ticket
     end
 
     def assign(tag)
