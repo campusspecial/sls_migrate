@@ -1,0 +1,9 @@
+username: someone@example.com
+organization: my-organization-subdomain
+password: p4ssw0rd
+
+cleanup_db: true
+
+project_name: My Project
+project_id: 12345
+project_csv: tickets.csv

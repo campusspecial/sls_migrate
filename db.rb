@@ -8,9 +8,6 @@ require 'active_record'
 require 'yaml'
 
 module SLS
-  dbconfig = YAML::load(File.open('database.yml'))
-  ActiveRecord::Base.establish_connection(dbconfig)
-
   def self.import_ticket_nums(project_name, filename)
     proj = SLS::Project.where(:name => project_name).first
     File.readlines(filename).each do |line|
@@ -22,88 +19,98 @@ module SLS
         )
       end
     end
+    nil
   end
-  
-  ActiveRecord::Schema.define do
-    unless ActiveRecord::Base.connection.tables.include? 'tickets'
-      create_table :tickets do |table|
-        table.string :title
-        table.text :body
-        table.string :priority, :default => 'NORMAL'
-        table.integer :sls_id
-        table.integer :github_id
-        table.datetime :created
 
-        # Foreign keys
-        table.integer :project_id # project
-        table.integer :owner_id # user
+  def self.cleanup_db
+    config = YAML::load(File.open('database.yml')).symbolize_keys
+    File.delete(config[:database])
+    self.import_table_schema
+  end
+
+  def self.import_table_schema
+    ActiveRecord::Base.establish_connection(YAML::load(File.open('database.yml')))
+    ActiveRecord::Schema.define do
+      unless ActiveRecord::Base.connection.tables.include? 'tickets'
+        create_table :tickets do |table|
+          table.string :title
+          table.text :body
+          table.string :priority, :default => 'Normal'
+          table.integer :sls_id
+          table.integer :github_id
+          table.datetime :created
+
+          # Foreign keys
+          table.integer :project_id # project
+          table.integer :owner_id # user
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'users'
-      create_table :users  do |table|
-        table.string :f_name
-        table.string :l_name
-        table.string :email
-        table.string :short_name
-        table.integer :sls_id
-        table.integer :github_id
+      unless ActiveRecord::Base.connection.tables.include? 'users'
+        create_table :users  do |table|
+          table.string :f_name
+          table.string :l_name
+          table.string :email
+          table.string :short_name
+          table.integer :sls_id
+          table.integer :github_id
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'projects'
-      create_table :projects do |table|
-        table.string :name
-        table.integer :sls_id
-        table.integer :github_id
+      unless ActiveRecord::Base.connection.tables.include? 'projects'
+        create_table :projects do |table|
+          table.string :name
+          table.integer :sls_id
+          table.integer :github_id
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'assignments'
-      # Many-to-many facilitator
-      create_table :assignments do |table|
-        table.integer :subject_id, :null => false
-        table.string :subject_type, :null => false
-        table.integer :assignable_id, :null => false
-        table.string :assignable_type, :null => false
+      unless ActiveRecord::Base.connection.tables.include? 'assignments'
+        # Many-to-many facilitator
+        create_table :assignments do |table|
+          table.integer :subject_id, :null => false
+          table.string :subject_type, :null => false
+          table.integer :assignable_id, :null => false
+          table.string :assignable_type, :null => false
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'activities'
-      # Many-to-many facilitator
-      create_table :activities do |table|
-        table.integer :subject_id, :null => false
-        table.string :subject_type, :null => false
-        table.integer :activity_id, :null => false
-        table.string :activity_type, :null => false
+      unless ActiveRecord::Base.connection.tables.include? 'activities'
+        # Many-to-many facilitator
+        create_table :activities do |table|
+          table.integer :subject_id, :null => false
+          table.string :subject_type, :null => false
+          table.integer :activity_id, :null => false
+          table.string :activity_type, :null => false
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'comments'
-      create_table :comments do |table|
-        table.text :body, :null => false
-        table.integer :author_id, :null => false
-        table.datetime :created
-        table.integer :ticket_id, :null => false
-        table.integer :sls_id
+      unless ActiveRecord::Base.connection.tables.include? 'comments'
+        create_table :comments do |table|
+          table.text :body, :null => false
+          table.integer :author_id, :null => false
+          table.datetime :created
+          table.integer :ticket_id, :null => false
+          table.integer :sls_id
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'status_changes'
-      create_table :status_changes do |table|
-        table.boolean :open, :default => true, :null => false
-        table.string :status
-        table.integer :ticket_id, :null => false
-        table.integer :author_id, :null => false
+      unless ActiveRecord::Base.connection.tables.include? 'status_changes'
+        create_table :status_changes do |table|
+          table.boolean :open, :default => true, :null => false
+          table.string :status
+          table.integer :ticket_id, :null => false
+          table.integer :author_id, :null => false
+        end
       end
-    end
 
-    unless ActiveRecord::Base.connection.tables.include? 'labels'
-      create_table :labels do |table|
-        table.string :name, :null => false
-        table.integer :project_id, :null => false
-        table.integer :github_id
-        table.integer :sls_id
+      unless ActiveRecord::Base.connection.tables.include? 'labels'
+        create_table :labels do |table|
+          table.string :name, :null => false
+          table.integer :project_id, :null => false
+          table.integer :github_id
+          table.integer :sls_id
+        end
       end
     end
   end
@@ -239,3 +246,5 @@ module SLS
     belongs_to :activity, :polymorphic => true
   end
 end
+
+SLS::import_table_schema
