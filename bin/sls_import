@@ -8,42 +8,32 @@ require './lib/crawler'
 
 class Hash
   def symbolize_keys
-    self.inject({}){|item,(k,v)| item[k.to_sym] = v; item}
+    self.inject({}){|item,(k,v)| item[k.to_sym] = (v.is_a?(Hash) ? v.symbolize_keys : v); item}
   end
 end
 
 sls = YAML::load(File.open('springloops.yml')).symbolize_keys
 
-SLS::cleanup_db if sls[:cleanup_db]
-
-$proj = SLS::Project.where(:sls_id => sls[:project_id], :name => sls[:project_name]).first_or_create
 $bot = SLS::Crawler.new(
   :username => sls[:username],
   :password => sls[:password],
   :organization => sls[:organization]
 )
-if sls[:cleanup_db]
-  SLS::import_ticket_nums $proj.name, sls[:project_csv]
-  $proj.reload
-end
 
-# scraping ticket information
-$proj.tickets.each do |ticket|
-  # TODO: error handling if need to login again or account suspended for DOS
-  data = $bot.fetch_ticket_info $proj.sls_id, ticket.sls_id
-  ticket.title = data[:title]
-  ticket.body = data[:desc]
-  ticket.created = Time.at(data[:created]).utc.to_datetime
-  ticket.priority = data[:priority][:name]
-  ticket.owner = SLS::User.where(
-    :sls_id => data[:opener][:id]
-  ).first_or_create do |u|
-    u.f_name = data[:opener][:firstName]
-    u.l_name = data[:opener][:lastName]
-    u.email = data[:opener][:email]
-    u.short_name = data[:opener][:shortName]
+SLS::cleanup_db if sls[:cleanup_db]
+sls[:projects].each do |project_data|
+  # Make sure all listed projects exist beforehand
+  proj = SLS::Project.where(
+    :sls_id => project_data["id"],
+    :name => project_data["name"]
+  ).first_or_create
+  if sls[:cleanup_db]
+    puts "Importing tickets for #{proj.name} from CSV"
+    SLS::import_ticket_nums proj, project_data["csv"]
+    puts "done"
   end
-  #
+  puts "Importing #{proj.name} tickets from Springloops"
+  SLS::ajax_import_ticket_info :tickets => proj.tickets.where(:title => nil).order(sls_id: :desc)
+  puts "done"
 end
-
 

@@ -8,8 +8,12 @@ require 'active_record'
 require 'yaml'
 
 module SLS
-  def self.import_ticket_nums(project_name, filename)
-    proj = SLS::Project.where(:name => project_name).first
+  def self.import_ticket_nums(project, filename)
+    if project.is_a? SLS::Project
+      proj = project
+    else
+      proj = SLS::Project.where(:name => project_name).first
+    end
     File.readlines(filename).each do |line|
       num = line.chomp.scan(/^(\d+),/)
       unless num.empty?
@@ -121,27 +125,58 @@ module SLS
     belongs_to :owner, :class_name => 'SLS::User'
 
     # Assignments
-    has_many :assignments, :class_name => 'SLS::Assignment', :as => :subject
-    has_many :workers, :class_name => 'SLS::User', :through => :assignments,
-      :as => :assignable, :source => :assignable, :source_type => 'SLS::User'
-    has_many :labels, :class_name => 'SLS::Label', :through => :assignments,
-      :as => :assignable, :source => :assignable, :source_type => 'SLS::Label'
+    has_many :assignments,
+      :class_name => 'SLS::Assignment',
+      :as => :subject
+
+    has_many :workers,
+      :class_name => 'SLS::User',
+      :through => :assignments,
+      :as => :assignable,
+      :source => :assignable,
+      :source_type => 'SLS::User'
+
+    has_many :labels,
+      :class_name => 'SLS::Label',
+      :through => :assignments,
+      :as => :assignable,
+      :source => :assignable, 
+      :source_type => 'SLS::Label'
+
 
     # Activities
-    has_many :activities, :class_name => 'SLS::Activity', :as => :subject
-    has_many :status_changes, :class_name => 'SLS::StatusChange',
-      :through => :activities, :as => :activity, :source => :subject,
-      :source_type => 'SLS::Ticket'
-    has_many :comments, :class_name => 'SLS::Comment',
-      :through => :activities, :as => :activity, :source => :subject,
-      :source_type => 'SLS::Ticket'
+    has_many :activities,
+      :class_name => 'SLS::Activity',
+      :as => :subject
+
+    has_many :status_changes,
+      :class_name => 'SLS::StatusChange',
+      :as => :activity,
+      :through => :activities,
+      :source => :activity,
+      :source_type => 'SLS::StatusChange'
+
+    has_many :comments,
+      :class_name => 'SLS::Comment',
+      :through => :activities,
+      :as => :activity,
+      :source => :activity,
+      :source_type => 'SLS::Comment'
 
     def add_worker(user)
-      self.assign user if user.is_a? SLS::User and not self.workers.include? user
+      self.add_assignment user if user.is_a? SLS::User and not self.workers.include? user
+    end
+
+    def remove_worker(user)
+      self.remove_assignment if user.is_a? SLS::User and self.workers.include? user
     end
 
     def add_label(label)
-      self.assign label if label.is_a? SLS::Label and not self.labels.include? label
+      self.add_assignment label if label.is_a? SLS::Label and not self.labels.include? label
+    end
+
+    def remove_label(label)
+      self.remove_assignment label if label.is_a? SLS::Label and self.labels.include? label
     end
 
     def change_status(status, author)
@@ -167,8 +202,14 @@ module SLS
       ) if author.is_a?(SLS::User) && created.is_a?(DateTime)
     end
 
-    def assign(tag)
+    def add_assignment(tag)
       SLS::Assignment.create(:subject => self, :assignable => tag)
+      tag.reload
+      self.reload
+    end
+    def remove_assignment(tag)
+      SLS::Assignment.where(:subject => self, :assignable => tag).first.destroy
+      tag.reload
       self.reload
     end
   end
@@ -206,7 +247,7 @@ module SLS
     belongs_to :author, :class_name => 'SLS::User'
     after_create :create_activities
 
-    def is_open?
+    def open?
       self.open
     end
 
@@ -225,15 +266,6 @@ module SLS
     has_many :assignments, :class_name => 'SLS::Assignment', :as => :assignable
     has_many :tickets, :class_name => 'SLS::Ticket', :through => :assignments,
       :as => :subject, :source => :assignable, :source_type => 'SLS::Label'
-
-    def add_to_ticket(ticket)
-      self.assign ticket
-    end
-
-    def assign(tag)
-      SLS::Assignment.create(:subject => self, :assignable => tag)
-      self.reload
-    end
   end
 
   class Assignment < ActiveRecord::Base

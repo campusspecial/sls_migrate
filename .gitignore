@@ -1,3 +1,5 @@
+.*.un~
+*.bak
 tickets.csv
 tickets-*.csv
 springloops.yml
