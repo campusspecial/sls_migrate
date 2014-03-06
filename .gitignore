@@ -1,4 +1,7 @@
+tickets.csv
 tickets-*.csv
 springloops.yml
 database.yml
 github.yml
+*.db
+*.log
