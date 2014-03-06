@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+# vim: ts=2:tw=2:sw=2:expandtab
+# vi: ts=2:tw=2:sw=2:expandtab
+
+require 'yaml'
+require 'octokit'
+require './lib/db'
+
+class Hash
+  def symbolize_keys
+    self.inject({}){|item,(k,v)| item[k.to_sym] = (v.is_a?(Hash) ? v.symbolize_keys : v); item}
+  end
+end
+
+SLS::import_table_schema
+ghconfig = YAML::load(File.open('github.yml')).symbolize_keys
+
+$gh = Octokit::Client.new(:access_token => ghconfig[:oauth_token])
+$gh.user.login
+
+
+def get_labels(ticket)
+  #
+end

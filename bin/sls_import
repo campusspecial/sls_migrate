@@ -6,12 +6,15 @@ require 'yaml'
 require './lib/db'
 require './lib/crawler'
 
+$SLSLogger = Logger.new('sls_import.log')
+$SLSLogger.level = Logger::INFO
+
 class Hash
   def symbolize_keys
     self.inject({}){|item,(k,v)| item[k.to_sym] = (v.is_a?(Hash) ? v.symbolize_keys : v); item}
   end
 end
-
+begin
 sls = YAML::load(File.open('springloops.yml')).symbolize_keys
 db = YAML::load(File.open('database.yml')).symbolize_keys
 sls[:cleanup_db] = true unless not sls[:cleanup_db] and File.exists?(db[:database])
@@ -25,11 +28,14 @@ $bot = SLS::Crawler.new(
   :organization => sls[:organization]
 )
 
+$SLSLogger.info "Setting up database"
 if sls[:cleanup_db]
   SLS::cleanup_db
 else
   SLS::import_table_schema
 end
+$SLSLogger.info "Database is setup correctly"
+$SLSLogger.info "Beginning import by project"
 sls[:projects].each do |project_data|
   # Make sure all listed projects exist beforehand
   proj = SLS::Project.where(
@@ -37,12 +43,15 @@ sls[:projects].each do |project_data|
     :name => project_data["name"]
   ).first_or_create
   if sls[:cleanup_db]
-    puts "Importing tickets for #{proj.name} from CSV"
+    $SLSLogger.info "Importing tickets for #{proj.name} from CSV"
     SLS::import_ticket_nums proj, project_data["csv"]
-    puts "done"
+    $SLSLogger.info "done"
   end
-  puts "Importing #{proj.name} tickets from Springloops"
-  #SLS::ajax_import_ticket_info :tickets => proj.tickets.where(:title => nil).order(sls_id: :desc)
-  puts "done"
+  $SLSLogger.info "Importing #{proj.name} tickets from Springloops"
+  SLS::ajax_import_ticket_info :tickets => proj.tickets.where(:title => nil).order(sls_id: :asc)
+  $SLSLogger.info "done"
 end
-
+$SLSLogger.info "Done importing projects"
+rescue => e
+  $SLSLogger.fatal e
+end
