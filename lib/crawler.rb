@@ -29,7 +29,7 @@ module SLS
       }
       begin
         data = $bot.fetch_ticket_info ticket.project.sls_id, ticket.sls_id
-        sleep 5
+        sleep 1
         ticket.title = data[:title]
         was_set[:title] = true
         if data[:hasDescription]
