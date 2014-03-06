@@ -28,7 +28,10 @@ module SLS
 
   def self.cleanup_db
     config = YAML::load(File.open('database.yml')).symbolize_keys
-    File.delete(config[:database])
+    begin
+      File.delete(config[:database])
+    rescue
+    end
     self.import_table_schema
   end
 
@@ -279,4 +282,4 @@ module SLS
   end
 end
 
-SLS::import_table_schema
+#SLS::import_table_schema
