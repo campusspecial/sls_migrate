@@ -1,13 +1,14 @@
 #!/usr/bin/env ruby
 # vim: ts=2:tw=2:sw=2:expandtab
 # vi: ts=2:tw=2:sw=2:expandtab
+
 require 'yaml'
-require '../lib/db'
-require '../lib/crawler'
+require './lib/db'
+require './lib/crawler'
 
 class Hash
   def symbolize_keys
-    self.inject({}) {|item,(k,v)| item[k.to_sym] = v; item}
+    self.inject({}){|item,(k,v)| item[k.to_sym] = v; item}
   end
 end
 
@@ -21,5 +22,28 @@ $bot = SLS::Crawler.new(
   :password => sls[:password],
   :organization => sls[:organization]
 )
-SLS::import_ticket_nums $proj.name, sls[:project_csv]
+if sls[:cleanup_db]
+  SLS::import_ticket_nums $proj.name, sls[:project_csv]
+  $proj.reload
+end
+
+# scraping ticket information
+$proj.tickets.each do |ticket|
+  # TODO: error handling if need to login again or account suspended for DOS
+  data = $bot.fetch_ticket_info $proj.sls_id, ticket.sls_id
+  ticket.title = data[:title]
+  ticket.body = data[:desc]
+  ticket.created = Time.at(data[:created]).utc.to_datetime
+  ticket.priority = data[:priority][:name]
+  ticket.owner = SLS::User.where(
+    :sls_id => data[:opener][:id]
+  ).first_or_create do |u|
+    u.f_name = data[:opener][:firstName]
+    u.l_name = data[:opener][:lastName]
+    u.email = data[:opener][:email]
+    u.short_name = data[:opener][:shortName]
+  end
+  #
+end
+
 
