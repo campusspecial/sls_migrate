@@ -2,8 +2,8 @@
 # vim: ts=2:tw=2:sw=2:expandtab
 # vi: ts=2:tw=2:sw=2:expandtab
 require 'yaml'
-require './db'
-require './crawler'
+require '../lib/db'
+require '../lib/crawler'
 
 class Hash
   def symbolize_keys
