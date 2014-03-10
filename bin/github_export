@@ -4,21 +4,48 @@
 
 require 'yaml'
 require 'octokit'
+require 'reverse_markdown'
 require './lib/db'
 
-class Hash
-  def symbolize_keys
-    self.inject({}){|item,(k,v)| item[k.to_sym] = (v.is_a?(Hash) ? v.symbolize_keys : v); item}
+def filter_html_crap(html)
+  until html == html.gsub(/<p>(.*)<br \/><br \/>(.*)<\/p>/, '<p>\1</p><p>\2</p>')
+    html = html.gsub(/<p>(.*)<br \><br \/>(.*)<\/p>/, '<p>\1</p><p>\2</p>')
   end
+  html
+  #(1..20).each { html = html.gsub(/<p>(.*)<br \/><br \/>(.*)<\/p>/, '<p>\1</p><p>\2</p>')}
 end
 
 SLS::import_table_schema
-ghconfig = YAML::load(File.open('github.yml')).symbolize_keys
+$ghconfig = YAML::load(File.open('github.yml')).symbolize_keys
 
-$gh = Octokit::Client.new(:access_token => ghconfig[:oauth_token])
+$gh = Octokit::Client.new(:access_token => $ghconfig[:oauth_token])
 $gh.user.login
 
-
-def get_labels(ticket)
-  #
+# gather all tickets for a repository
+def get_tickets(project)
+  project.tickets.where('tickets.title IS NOT NULL').order(sls_id: :asc)
 end
+def ticket_to_issue(ticket)
+  # github issues need 3 things:
+  # + repository
+  # + title
+  # + body
+  # optional parameters:
+  # + labels
+  $gh.create_issue(
+    '',
+    ticket.export_title,
+    ticket.export_body,
+    {
+      :labels => ticket.export_labels
+    }
+  )
+end
+SLS::Project.where(
+  :sls_id => $ghconfig[:projects].map{|p| p[:sls_id]}
+).each do |project|
+  get_tickets(project).each do |ticket|
+    ticket_to_issue(ticket)
+  end
+end
+

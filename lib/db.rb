@@ -6,6 +6,8 @@ require 'rubygems'
 require 'sqlite3'
 require 'active_record'
 require 'yaml'
+require './lib/runtime_fixes'
+require 'active_support/core_ext/integer/inflections'
 
 module SLS
   def self.import_ticket_nums(project, filename)
@@ -215,6 +217,47 @@ module SLS
       tag.reload
       self.reload
     end
+
+    def export_body
+      ghbody = Array.new
+      unless $ghconfig.nil?
+        ghbody += [$ghconfig[:export_header],""] unless $ghconfig[:export_header].nil?
+        slsworkers = self.workers.map {|user| user.email}
+        ghworkers = $ghconfig[:users].map {|u| u[:github_username] if slsworkers.include? u[:sls_email]}
+      end
+      parsed_body = ReverseMarkdown.parse self.body.filter_html_crap
+      parsed_body = parsed_body.split("\n\n").reject {|s| s.trim.empty?}
+      ghbody += parsed_body
+      ghbody += [""]
+
+      ghbody += ["/cc #{ghworkers.join(' ')}"] unless ghworkers.nil? or ghworkers.empty?
+
+      ghbody += ["## Metadata:"]
+      ghbody += ["Created by #{self.owner.full_name} on #{self.created.in_time_zone('Eastern Time (US & Canada)').strftime("%a, %B #{self.created.in_time_zone('Eastern Time (US & Canada)').day.ordinalize}, %Y at %l:%M%P %Z")}"]
+      return ghbody.join("\n\n")
+    end
+    def export_title
+      self.title
+    end
+    def export_labels
+      ghlabels = self.labels.map {|label| label.name}
+      # Status? (Huboard)
+      ghlabels += case self.status.status.downcase
+                  when 'closed'
+                    []
+                  when 'open'
+                    ["0 - Backlog"]
+                  when 'in progress'
+                    ["2 - Working"]
+                  when 'resolved'
+                    ["3 - Done"]
+                  end
+      # Others?
+      return ghlabels.join(',')
+    end
+    def export_activity
+      nil
+    end
   end
 
   class Project < ActiveRecord::Base
@@ -228,6 +271,10 @@ module SLS
     has_many :tasks, :class_name => 'SLS::Ticket', :through => :assignments,
       :as => :assignable, :source => :subject, :source_type => 'SLS::Ticket'
     has_many :comments, :class_name => 'SLS::Comment', :foreign_key => :author_id
+
+    def full_name
+      "#{self.f_name} #{self.l_name}"
+    end
   end
 
   class Comment < ActiveRecord::Base
