@@ -1,4 +1,5 @@
 .*.un~
+.*.swp
 *.bak
 tickets.csv
 tickets-*.csv

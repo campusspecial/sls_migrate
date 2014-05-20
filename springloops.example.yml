@@ -4,6 +4,10 @@ password: p4ssw0rd
 
 cleanup_db: true
 
-project_name: My Project
-project_id: 12345
-project_csv: tickets.csv
+projects:
+    - name: My Personal Project
+      id: 12345
+      csv: tickets-foo.csv
+    - name: Corporate Contract
+      id: 67890
+      csv: tickets-corp.csv

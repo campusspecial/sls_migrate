@@ -3,21 +3,13 @@
 # vi: ts=2:tw=2:sw=2:expandtab
 
 require 'yaml'
+require './lib/shim'
 require './lib/db'
 require './lib/crawler'
 
-class Hash
-  def symbolize_keys
-    self.inject({}){|item,(k,v)| item[k.to_sym] = (v.is_a?(Hash) ? v.symbolize_keys : v); item}
-  end
-end
-
 sls = YAML::load(File.open('springloops.yml')).symbolize_keys
 db = YAML::load(File.open('database.yml')).symbolize_keys
-sls[:cleanup_db] = true unless not sls[:cleanup_db] and File.exists?(db[:database])
-
-#puts sls[:cleanup_db]
-#exit
+sls[:cleanup_db] = true if sls[:cleanup_db] or not File.exists?(db[:database])
 
 $bot = SLS::Crawler.new(
   :username => sls[:username],
@@ -33,12 +25,12 @@ end
 sls[:projects].each do |project_data|
   # Make sure all listed projects exist beforehand
   proj = SLS::Project.where(
-    :sls_id => project_data["id"],
-    :name => project_data["name"]
+    :sls_id => project_data[:id],
+    :name => project_data[:name]
   ).first_or_create
   if sls[:cleanup_db]
     puts "Importing tickets for #{proj.name} from CSV"
-    SLS::import_ticket_nums proj, project_data["csv"]
+    SLS::import_ticket_nums proj, project_data[:csv]
     puts "done"
   end
   puts "========================= #{proj.name} ========================="
