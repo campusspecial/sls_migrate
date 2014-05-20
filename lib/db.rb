@@ -8,11 +8,12 @@ require 'active_record'
 require 'yaml'
 
 module SLS
+  # import from CSV into skeleton ticket records
   def self.import_ticket_nums(project, filename)
     if project.is_a? SLS::Project
       proj = project
     else
-      proj = SLS::Project.where(:name => project_name).first
+      proj = SLS::Project.where(:name => project).first
     end
     File.readlines(filename).each do |line|
       num = line.chomp.scan(/^(\d+),/)

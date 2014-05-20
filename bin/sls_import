@@ -41,8 +41,9 @@ sls[:projects].each do |project_data|
     SLS::import_ticket_nums proj, project_data["csv"]
     puts "done"
   end
+  puts "========================= #{proj.name} ========================="
   puts "Importing #{proj.name} tickets from Springloops"
   #SLS::ajax_import_ticket_info :tickets => proj.tickets.where(:title => nil).order(sls_id: :desc)
-  puts "done"
+  puts "============================ DONE ============================"
 end
 

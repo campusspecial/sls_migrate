@@ -11,6 +11,6 @@ The GitHub issues export tool will be formatted for use with [Huboard](https://h
 2. Create database.yml from database.example.yml and enter 
 3. Create springloops.yml from springloops.example.yml and enter your account information for Springloops
 4. Create github.yml from github.example.yml and enter your account information for GitHub
-5. Import tasks from Springloops with `$ ruby import.rb`
-6. Create a repository for each project in Springloops
-7. Export tasks to Springloops with `$ ruby export.rb`
+5. Import tasks from Springloops with `$ ruby bin/sls_import`
+6. Create a repository on Github for each project in Springloops
+7. Export tasks to GitHub with `$ ruby bin/github_export`
