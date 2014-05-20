@@ -3,6 +3,7 @@ organization: my-organization-subdomain
 password: p4ssw0rd
 
 cleanup_db: true
+offline: true
 
 projects:
     - name: My Personal Project
