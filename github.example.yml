@@ -1,3 +1,5 @@
-oauth_token: suchafake40charactertoken
+access_token: suchafake40charactertoken
+username: octocat
+password: p4ssw0rd_s3cur|ty
 
-repository: my_repository
+imported_label: true

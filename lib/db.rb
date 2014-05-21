@@ -61,7 +61,7 @@ module SLS
           table.string :email
           table.string :short_name
           table.integer :sls_id
-          table.integer :github_id
+          table.string :github_id
         end
       end
 
@@ -69,7 +69,7 @@ module SLS
         create_table :projects do |table|
           table.string :name
           table.integer :sls_id
-          table.integer :github_id
+          table.string :github_id
         end
       end
 
@@ -90,6 +90,7 @@ module SLS
           table.string :subject_type, :null => false
           table.integer :activity_id, :null => false
           table.string :activity_type, :null => false
+          table.integer :github_id
         end
       end
 
@@ -122,7 +123,6 @@ module SLS
       end
     end
   end
-
 
   class Ticket < ActiveRecord::Base
     belongs_to :project, :class_name => 'SLS::Project'
@@ -236,6 +236,19 @@ module SLS
     belongs_to :author, :class_name => 'SLS::User'
     after_create :create_activities
 
+    def activity
+      SLS::Activity.where(:subject => self.ticket).where(:activity => self).first
+    end
+
+    def github_id
+      self.activity.github_id
+    end
+    def github_id=(gh_id)
+      act = self.activity
+      act.github_id = (gh_id.nil? ? gh_id : gh_id.to_i)
+      act.save
+    end
+
     private
 
     def create_activities
@@ -253,6 +266,19 @@ module SLS
 
     def open?
       self.open
+    end
+
+    def activity
+      SLS::Activity.where(:subject => self.ticket).where(:activity => self).first
+    end
+
+    def github_id
+      self.activity.github_id
+    end
+    def github_id=(gh_id)
+      act = self.activity
+      act.github_id = (gh_id.nil? ? gh_id : gh_id.to_i)
+      act.save
     end
 
     private

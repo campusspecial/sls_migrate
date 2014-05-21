@@ -1,0 +1,111 @@
+#!/usr/bin/env ruby
+# vim: ts=2:tw=2:sw=2:expandtab
+# vi: ts=2:tw=2:sw=2:expandtab
+
+require 'yaml'
+require 'octokit'
+require './lib/db'
+require './lib/shim'
+
+
+db = YAML::load(File.open('database.yml')).symbolize_keys
+gh = YAML::load(File.open('github.yml')).symbolize_keys
+
+raise 'No database to export' unless File.exists? db[:database]
+
+SLS::import_table_schema
+
+# fall back from Application to Access Token to Password authentication default to 
+if not gh[:client_id].nil? and not gh[:client_secret].nil? and not gh[:username].nil? and gh[:client_id].length == 20 and gh[:client_secret].length == 40 and not gh[:username].blank?
+  client = Octokit::Client.new :client_id => gh[:client_id], :client_secret => gh[:client_secret]
+  client.user gh[:username]
+elsif not gh[:access_token].nil? and gh[:access_token].length == 40
+  client = Octokit::Client.new :access_token => gh[:access_token]
+elsif not gh[:username].nil? and not gh[:password].nil? and not gh[:username].blank? and not gh[:password].blank?
+  client = Octokit::Client.new :login => gh[:username], :password => gh[:password]
+else
+  raise 'No way of logging into Github'
+end
+
+huboard_status = {
+  #'closed'      => '3 - Done',
+  'resolved'    => '3 - Done',
+  'in progress' => '2 - Working',
+  'open'        => '0 - Backlog'
+}
+
+SLS::Project.where.not(:github_id => nil).each do |project|
+  project.tickets.where(:sls_id => 379).each do |ticket|
+    workers_assigned = ticket.workers.map {|u| "#{u.f_name} #{u.l_name}"}
+
+    labels = ticket.labels.map {|lbl| lbl.name}
+    labels.push "@#{ticket.priority.downcase.strip}" # priority is now a label too
+    labels.push huboard_status[ticket.status.status.downcase.strip] unless huboard_status[ticket.status.status.downcase.strip].nil? # huboard status
+    labels.push 'Imported from Springloops' if gh[:imported_label]
+
+    # compile ticket body
+    body = ticket.body
+    body += "\n\n----------\n"
+    body += "\n**Project:** #{project.name}"
+    body += "\n**Springloops ID:** t#{ticket.sls_id}"
+    body += "\n**Priority:** #{ticket.priority}"
+    body += "\n**Latest status:** #{ticket.status.status} (set by #{ticket.status.author.f_name} #{ticket.status.author.l_name})"
+    body += "\n**Created by:** #{ticket.owner.f_name} #{ticket.owner.l_name}"
+    body += "\n**Assigned to:** #{workers_assigned.join(', ')}"
+    body += "\n\n----------"
+
+    # create on github
+    # [ASSUMPTION]
+    gh_ticket = client.create_issue project.github_id, ticket.title, body, { :labels => labels.join(',') }
+    ticket.github_id = gh_ticket.number
+    ticket.save
+
+    sleep 1 # pause for API limit
+
+    # add activity stream
+    ticket.activities.where(:github_id => nil).order(:id => :asc).each do |activity|
+      if activity.activity_type == 'SLS::Comment'
+        # add comments
+        comment = activity.activity
+        #next unless comment.github_id.nil?
+
+        body = comment.body
+        body += "\n\n----------\n"
+        body += "\n**Author:** #{comment.author.f_name} #{comment.author.l_name}"
+        body += "\n**Date:** #{comment.created.in_time_zone('Eastern Time (US & Canada)').strftime("%a, %b %e, %Y at %I:%M%P [%Z]")}"
+        body += "\n\n----------"
+
+        # [ASSUMPTION]
+        gh_comment = client.add_comment project.github_id, ticket.github_id, body
+        comment.github_id = gh_comment.id
+        comment.save
+
+        sleep 1 # pause for API limit
+
+      elsif activity.activity_type == 'SLS::StatusChange'
+        # add status changes
+        status_change = activity.activity
+        #next unless status_change.github_id.nil?
+
+        body = "----------\n"
+        body += "\n#{status_change.author.f_name} #{status_change.author.l_name} changed the status to #{status_change.status}"
+        body += "\n\n----------"
+
+        # [ASSUMPTION]
+        gh_comment = client.add_comment project.github_id, ticket.github_id, body
+        status_change.github_id = gh_comment.id
+        status_change.save
+
+        sleep 1 # pause for API limit
+
+      end
+    end
+
+    # close ticket only AFTER comments are entered
+    unless ticket.status.open?
+      client.close_issue project.github_id, ticket.github_id
+      sleep 1 # pause for API limit
+    end
+  end
+end
+

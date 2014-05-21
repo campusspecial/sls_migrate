@@ -6,5 +6,6 @@ tickets-*.csv
 springloops.yml
 database.yml
 github.yml
+Gemfile.lock
 *.db
 *.log
