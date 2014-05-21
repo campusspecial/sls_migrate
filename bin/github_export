@@ -35,7 +35,9 @@ huboard_status = {
 }
 
 SLS::Project.where.not(:github_id => nil).each do |project|
-  project.tickets.where(:sls_id => 379).each do |ticket|
+  puts "Project #{project.sls_id}\n"
+  project.tickets.where(:github_id => nil).each do |ticket|
+    puts "-- Ticket #{ticket.sls_id}\n"
     workers_assigned = ticket.workers.map {|u| "#{u.f_name} #{u.l_name}"}
 
     labels = ticket.labels.map {|lbl| lbl.name}
@@ -65,6 +67,7 @@ SLS::Project.where.not(:github_id => nil).each do |project|
     # add activity stream
     ticket.activities.where(:github_id => nil).order(:id => :asc).each do |activity|
       if activity.activity_type == 'SLS::Comment'
+        puts "-- -- Comment\n"
         # add comments
         comment = activity.activity
         #next unless comment.github_id.nil?
@@ -83,6 +86,7 @@ SLS::Project.where.not(:github_id => nil).each do |project|
         sleep 1 # pause for API limit
 
       elsif activity.activity_type == 'SLS::StatusChange'
+        puts "-- -- Status Change\n"
         # add status changes
         status_change = activity.activity
         #next unless status_change.github_id.nil?
@@ -103,6 +107,7 @@ SLS::Project.where.not(:github_id => nil).each do |project|
 
     # close ticket only AFTER comments are entered
     unless ticket.status.open?
+      puts "-- -- Closed\n"
       client.close_issue project.github_id, ticket.github_id
       sleep 1 # pause for API limit
     end
