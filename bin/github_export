@@ -34,9 +34,9 @@ huboard_status = {
   'open'        => '0 - Backlog'
 }
 
-SLS::Project.where.not(:github_id => nil).each do |project|
-  puts "Project #{project.sls_id}\n"
-  project.tickets.where(:github_id => nil).each do |ticket|
+SLS::Project.where.not(:github_id => nil).order(:sls_id => :asc).each do |project|
+  puts "Project #{project.name} [#{project.sls_id}]\n"
+  project.tickets.where(:github_id => nil).order(:sls_id => :asc).each do |ticket|
     puts "-- Ticket #{ticket.sls_id}\n"
     workers_assigned = ticket.workers.map {|u| "#{u.f_name} #{u.l_name}"}
 
@@ -46,7 +46,7 @@ SLS::Project.where.not(:github_id => nil).each do |project|
     labels.push 'Imported from Springloops' if gh[:imported_label]
 
     # compile ticket body
-    body = ticket.body
+    body = "#{ticket.body}"
     body += "\n\n----------\n"
     body += "\n**Project:** #{project.name}"
     body += "\n**Springloops ID:** t#{ticket.sls_id}"
